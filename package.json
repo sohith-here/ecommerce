@@ -7,6 +7,7 @@
   },
   "dependencies": {
     "@handlebars/allow-prototype-access": "^1.0.5",
+    "bcrypt": "^5.1.1",
     "cookie-parser": "~1.4.4",
     "cors": "^2.8.5",
     "debug": "~2.6.9",
@@ -14,6 +15,7 @@
     "express-fileupload": "^1.5.1",
     "express-handlebars": "^7.1.3",
     "express-handlers": "^1.0.0",
+    "express-session": "^1.18.0",
     "fileupload": "^0.2.1",
     "handlebars": "^4.7.8",
     "hbs": "^4.2.0",
