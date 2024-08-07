@@ -1,5 +1,5 @@
 <form action="/login" method="post" style="width: 15rem; margin-left:600px;padding-top:65px">
-
+     
   <div data-mdb-input-init class="form-outline mb-4">
     <label class="form-label" for="form2Example1">Email address</label>
     <input name="Email" type="email" id="form2Example1" class="form-control" />
@@ -12,8 +12,10 @@
     <input  name="Password" type="password" id="form2Example2" class="form-control" />
    
   </div>
+ {{#if loginErr}}
+  <p class="error">{{loginErr}}</p>
 
-  
+  {{/if}}
   <div class="row mb-4">
     <div class="col d-flex justify-content-center">
       
