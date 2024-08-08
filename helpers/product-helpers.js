@@ -2,6 +2,7 @@ const db = require('../config/connection');
 const collection = require('../config/collection');
 const {connect} =require('../config/connection');
 const { resolve } = require('path');
+const { response } = require('express');
 const objectId=require('mongodb').ObjectId
 
 module.exports = {
@@ -30,5 +31,36 @@ module.exports = {
       resolve(response)
      })
   })
+  },
+  getProductDetails: (proId) => {
+    return new Promise((resolve, reject) => {
+        db.getDb().collection(collection.PRODUCT_COLLECTION)
+            .findOne({ _id: new objectId(proId) })
+            .then((product) => {
+                resolve(product);
+            })
+            .catch((err) => {
+                reject(err);
+            });
+    });
+},
+    updateProduct:(proId,productDetails) => {
+  return new Promise((resolve, reject) => {
+      db.getDb().collection(collection.PRODUCT_COLLECTION).updateOne({_id: new objectId(proId)},
+    {
+      $set:{
+        Name:productDetails.Name,
+        Description:productDetails.Description,
+        Price:productDetails.Price,
+        Category:productDetails.Category
+      }
+      }).then((response)=>{
+        resolve()
+      })
+
+
+
+  })
   }
 }
+
