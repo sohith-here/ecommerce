@@ -1,6 +1,8 @@
 const db = require('../config/connection');
 const collection = require('../config/collection');
 const bcrypt = require('bcrypt');
+const { response } = require('express');
+const objectId=require('mongodb').ObjectId
 
 module.exports = {
   doSignup: (userData) => {
@@ -48,5 +50,60 @@ module.exports = {
         reject(error);
       }
     });
-  }
+  },
+  addToCart:(proId,userId)=>{
+    return new Promise(async(resolve,reject)=>{
+      let userCart=await db.getDb().collection(collection.CART_COLLECTION).findOne({user: new objectId(userId)})
+      if(userCart){
+        db.getDb().collection(collection.CART_COLLECTION).updateOne({user:new objectId(userId)},
+      {
+          $push:{products: new objectId(proId)}
+      }
+    ).then((response)=>{
+      resolve()
+    })
+      }else{
+        let cartObj={
+          user:new objectId(userId),
+          product:[new objectId(proId)]
+        }
+        db.getDb().collection(collection.CART_COLLECTION).insertOne(cartObj).then((response)=>{
+          resolve()
+        })
+      }
+    })
+  },
+  getCartProducts:(userId) => {
+    return new Promise(async (resolve, reject) => {
+        try {
+            let cartItems = await db.getDb().collection(collection.CART_COLLECTION).aggregate([
+                {
+                    $match: { user: new objectId(userId) } // Match the user's cart
+                },
+                {
+                    $lookup: {
+                        from: collection.PRODUCT_COLLECTION, // The collection to join with
+                        let: { proList: '$products' }, // 'product' should be an array of product IDs
+                        pipeline: [
+                            {
+                                $match: {
+                                    $expr: {
+                                        $in: ['$_id', '$$proList'] // Match products in the 'product' array
+                                    }
+                                }
+                            }
+                        ],
+                        as: 'cartItems' // Store the joined products in 'cartItems'
+                    }
+                }
+            ]).toArray();
+
+            resolve(cartItems[0].cartItems); // Resolve the promise with the cart items
+        } catch (err) {
+            console.error('Error fetching cart products:', err);
+            reject(err); // Reject the promise if there's an error
+        }
+    });
+}
+
 };
