@@ -52,20 +52,35 @@ module.exports = {
     });
   },
   addToCart:(proId,userId)=>{
+    let proObj={
+      item:new objectId(proId),
+      quantity:1
+    }
     return new Promise(async(resolve,reject)=>{
       let userCart=await db.getDb().collection(collection.CART_COLLECTION).findOne({user: new objectId(userId)})
       if(userCart){
+        let proExist=userCart.products.findIndex(product => product.item==proId)
+        if(proExist!=-1){
+          db.getDb().collection(collection.CART_COLLECTION).updateOne({user:new objectId(userId),'products.item':new objectId(proId)},
+        {
+          $inc:{'products.$.quantity':1}
+        }).then(()=>{
+          resolve()
+        })
+        }else
+        {
         db.getDb().collection(collection.CART_COLLECTION).updateOne({user:new objectId(userId)},
       {
-          $push:{products: new objectId(proId)}
+          $push:{products: proObj}
       }
     ).then((response)=>{
       resolve()
     })
+  }
       }else{
         let cartObj={
           user:new objectId(userId),
-          product:[new objectId(proId)]
+          products:[proObj]
         }
         db.getDb().collection(collection.CART_COLLECTION).insertOne(cartObj).then((response)=>{
           resolve()
@@ -81,29 +96,59 @@ module.exports = {
                     $match: { user: new objectId(userId) } // Match the user's cart
                 },
                 {
-                    $lookup: {
-                        from: collection.PRODUCT_COLLECTION, // The collection to join with
-                        let: { proList: '$products' }, // 'product' should be an array of product IDs
-                        pipeline: [
-                            {
-                                $match: {
-                                    $expr: {
-                                        $in: ['$_id', '$$proList'] // Match products in the 'product' array
-                                    }
-                                }
-                            }
-                        ],
-                        as: 'cartItems' // Store the joined products in 'cartItems'
-                    }
+                  $unwind:'$products'
+                },
+                {
+                  $project:{
+                    item:'$products.item',
+                    quantity:'$products.quantity'
+                  }
+                },
+                {
+                  $lookup:{
+                    from:collection.PRODUCT_COLLECTION,
+                    localField:'item',
+                    foreignField:'_id',
+                    as:'product'
+                  }
+                },
+                {
+                  $project:{
+                    item:1,quantity:1,product:{$arrayElemAt:['$product',0]}
+                  }
                 }
             ]).toArray();
 
-            resolve(cartItems[0].cartItems); // Resolve the promise with the cart items
+            resolve(cartItems); // Resolve the promise with the cart items
         } catch (err) {
             console.error('Error fetching cart products:', err);
             reject(err); // Reject the promise if there's an error
         }
     });
+},
+  getCartCount :async (userId) => {
+  try {
+    const cart = await db.getDb().collection(collection.CART_COLLECTION).findOne({ user: new objectId(userId) });
+    if (cart && Array.isArray(cart.products)) {
+      return cart.products.length;
+    } else {
+      return 0;
+    }
+  } catch (error) {
+    console.error('Error fetching cart count:', error);
+    throw error;
+  }
+},
+changeProductQuantity:(details)=>{
+  count=parseInt(details.count)
+  return new Promise ((resolve,reject)=>{
+    db.getDb().collection(collection.CART_COLLECTION).updateOne({_id:new objectId(details.cart),'products.item':new objectId(details.product)},
+    {
+      $inc:{'products.$.quantity':count}
+    }).then(()=>{
+      resolve()
+    })
+  })
 }
 
 };
