@@ -139,16 +139,96 @@ module.exports = {
     throw error;
   }
 },
-changeProductQuantity:(details)=>{
-  count=parseInt(details.count)
-  return new Promise ((resolve,reject)=>{
-    db.getDb().collection(collection.CART_COLLECTION).updateOne({_id:new objectId(details.cart),'products.item':new objectId(details.product)},
-    {
-      $inc:{'products.$.quantity':count}
-    }).then(()=>{
-      resolve()
-    })
-  })
+changeProductQuantity : (details) => {
+  details.count = parseInt(details.count);
+  details.quantity = parseInt(details.quantity);
+  console.log(details.quantity)
+
+  // Calculate the new quantity after applying the count
+  const newQuantity = details.quantity + details.count;
+
+  return new Promise((resolve, reject) => {
+    const dbInstance = db.getDb();
+    const cartId = new objectId(details.cart);
+    const productId = new objectId(details.product);
+    console.log(newQuantity)
+
+    if (newQuantity <= 0) {
+      // Remove the product from the cart if the new quantity is 0 or less
+      dbInstance.collection(collection.CART_COLLECTION)
+        .updateOne(
+          { _id: cartId },
+          { $pull: { products: { item: productId } } }
+        )
+        .then((response) => {
+          resolve({ removeProduct: true });
+        })
+        .catch((error) => {
+          reject({ error: 'Failed to remove product from cart', details: error });
+        });
+    } else {
+      // Update the product quantity
+      dbInstance.collection(collection.CART_COLLECTION)
+        .updateOne(
+          { _id: cartId, 'products.item': productId },
+          { $inc: { 'products.$.quantity': details.count } }
+        )
+        .then((response) => {
+          resolve(true);
+        })
+        .catch((error) => {
+          reject({ error: 'Failed to update product quantity', details: error });
+        });
+    }
+  });
+},
+getTotalAmount:(userId)=>{
+  return new Promise(async (resolve, reject) => {
+    try {
+        let total = await db.getDb().collection(collection.CART_COLLECTION).aggregate([
+            {
+                $match: { user: new objectId(userId) } // Match the user's cart
+            },
+            {
+              $unwind:'$products'
+            },
+            {
+              $project:{
+                item:'$products.item',
+                quantity:'$products.quantity'
+              }
+            },
+            {
+              $lookup:{
+                from:collection.PRODUCT_COLLECTION,
+                localField:'item',
+                foreignField:'_id',
+                as:'product'
+              }
+            },
+            {
+              $project:{
+                item:1,quantity:1,product:{$arrayElemAt:['$product',0]},
+                productPrice: { $toDouble: { $arrayElemAt: ['$product.Price', 0] } }
+              }
+            },
+            {
+              $group:{
+                _id:null,
+                total:{$sum:{$multiply:['$quantity','$productPrice']}}
+              }
+            }
+          
+        ]).toArray();
+        console.log(total[0].total)
+        resolve(total[0].total); // Resolve the promise with the cart items
+    } catch (err) {
+        console.error('Error fetching cart products:', err);
+        reject(err); // Reject the promise if there's an error
+    }
+});
 }
+
+
 
 };
